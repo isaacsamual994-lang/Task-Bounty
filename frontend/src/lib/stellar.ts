@@ -35,9 +35,15 @@ export async function getAccountDetails(
       }
       throw createError(ErrorCodes.STELLAR_FETCH_FAILED);
     }
-    return response.json();
+    return await response.json();
   } catch (error) {
-    if (error instanceof Error && "code" in error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error.code === ErrorCodes.STELLAR_ACCOUNT_NOT_FOUND ||
+        error.code === ErrorCodes.STELLAR_FETCH_FAILED)
+    ) {
       throw error as StandardError;
     }
     console.error("Error fetching account details:", error);
