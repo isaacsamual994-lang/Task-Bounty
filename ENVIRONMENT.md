@@ -38,7 +38,41 @@ sensitive values are never committed or leaked to the browser.
 | `NEXT_PUBLIC_HORIZON_URL` | Yes | Horizon HTTP base URL for account reads |
 | `NEXT_PUBLIC_SOROBAN_RPC_URL` | Yes | Optional Soroban RPC URL (future contract calls) |
 | `NEXT_PUBLIC_CONTRACT_ID` | Yes | Optional deployed contract ID (`C...`) |
-| `NODE_ENV` | Yes | Set by Next.js / Node — do not override with secrets |
+| `NEXT_PUBLIC_SEED_DEMO_DATA` | Yes | Optional; `false` by default. Set `true` to seed in-memory demo data on the first local task API read; ignored when `NODE_ENV=production` |
+| `NODE_ENV` | Yes | Set automatically by Next.js / Node (`development`, `test`, or `production`) |
+
+## Optional server-side API rate limiting
+
+These variables are read by `frontend/src/lib/rate-limit.ts` on the server;
+they are **not** `NEXT_PUBLIC_*` variables and must not be copied into
+browser-side configuration.
+
+| Variable | Example | Default | Purpose |
+|----------|---------|---------|---------|
+| `API_RATE_LIMIT_ENABLED` | `true` | Disabled | Explicit opt-in to API rate-limit enforcement; only the literal string `true` enables it |
+| `API_RATE_LIMIT_MAX_REQUESTS` | `60` | `60` | Maximum requests allowed per window |
+| `API_RATE_LIMIT_WINDOW_MS` | `60000` | `60000` | Window duration in milliseconds |
+
+Set these in the server deployment environment rather than committing a
+populated `.env` file. The in-memory limiter is per runtime instance; it
+does not provide global cross-instance enforcement.
+
+### Quick reference for a local frontend
+
+```dotenv
+# Browser-visible; use TESTNET for local wallet experiments
+NEXT_PUBLIC_STELLAR_NETWORK=TESTNET
+NEXT_PUBLIC_HORIZON_URL=https://horizon-testnet.stellar.org
+# Optional; leave empty unless configured
+NEXT_PUBLIC_SOROBAN_RPC_URL=
+NEXT_PUBLIC_CONTRACT_ID=
+NEXT_PUBLIC_SEED_DEMO_DATA=false
+
+# Server-only; optional
+API_RATE_LIMIT_ENABLED=false
+API_RATE_LIMIT_MAX_REQUESTS=60
+API_RATE_LIMIT_WINDOW_MS=60000
+```
 
 Server-only secrets (if introduced later) must:
 
