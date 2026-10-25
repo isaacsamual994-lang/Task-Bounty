@@ -10,6 +10,7 @@ import {
   createLocalStorageMock,
   setupLocalStorageMock,
 } from "@/test/fixtures";
+import { ErrorMessages } from "@/lib/errors";
 
 // ---------------------------------------------------------------------------
 // Mocks — declared before vi.mock() so they are available in the factory
@@ -268,7 +269,20 @@ describe("signTransaction", () => {
         address: "G" + "A".repeat(55),
         networkPassphrase: "Test SDF Network ; September 2015",
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow(ErrorMessages.WALLET_CONNECTION_FAILED);
+  });
+
+  it("normalizes unexpected signing errors to a clear wallet message", async () => {
+    localStorageMock.getItem.mockReturnValue("freighter");
+    mockSignTransaction.mockRejectedValue("transport socket closed");
+
+    const { signTransaction } = await loadKit();
+    await expect(
+      signTransaction("XDR", {
+        address: "G" + "A".repeat(55),
+        networkPassphrase: "Test SDF Network ; September 2015",
+      }),
+    ).rejects.toThrow(ErrorMessages.WALLET_CONNECTION_FAILED);
   });
 
   it("throws when the kit is not available (server-side / no window)", async () => {
