@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { withRequestTimeout } from "@/lib/request-timeout";
 import type {
   TaskDifficulty,
   TaskRecord,
@@ -51,6 +52,8 @@ export interface UseBountyDiscoveryReturn {
   setFilters: (partial: Partial<BountyFilters>) => void;
   resetFilters: () => void;
   setPage: (page: number) => void;
+  /** Re-run the current filter/page query after an error or timeout. */
+  retry: () => void;
 }
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -83,6 +86,7 @@ export function useBountyDiscovery(): UseBountyDiscoveryReturn {
   const [pagination, setPagination] = useState<BountyPagination>(DEFAULT_PAGINATION);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryToken, setRetryToken] = useState(0);
 
   // Debounce the free-text search field only; other filters (selects, number
   // inputs) apply immediately since they don't fire on every keystroke.
@@ -111,15 +115,16 @@ export function useBountyDiscovery(): UseBountyDiscoveryReturn {
       setError(null);
 
       try {
-        const response = await fetch(`/api/tasks?${queryString}`, {
-          signal: controller.signal,
-        });
-        const body = await response.json();
+        const body = await withRequestTimeout(async (signal) => {
+          const response = await fetch(`/api/tasks?${queryString}`, { signal });
+          const result = await response.json();
+          if (!response.ok || !result.ok) {
+            throw new Error(result.error ?? "Failed to load bounties.");
+          }
+          return result;
+        }, { signal: controller.signal });
 
-        if (!response.ok || !body.ok) {
-          throw new Error(body.error ?? "Failed to load bounties.");
-        }
-
+        if (controller.signal.aborted) return;
         setTasks(body.tasks);
         setPagination(body.pagination);
       } catch (err) {
@@ -135,7 +140,7 @@ export function useBountyDiscovery(): UseBountyDiscoveryReturn {
     run();
 
     return () => controller.abort();
-  }, [queryString]);
+  }, [queryString, retryToken]);
 
   const setFilters = (partial: Partial<BountyFilters>) => {
     setFiltersState((prev) => ({ ...prev, ...partial }));
@@ -152,6 +157,8 @@ export function useBountyDiscovery(): UseBountyDiscoveryReturn {
     setPageState(Math.max(1, Math.floor(nextPage)));
   };
 
+  const retry = () => setRetryToken((current) => current + 1);
+
   return {
     tasks,
     pagination,
@@ -161,5 +168,6 @@ export function useBountyDiscovery(): UseBountyDiscoveryReturn {
     setFilters,
     resetFilters,
     setPage,
+    retry,
   };
 }

@@ -6,7 +6,7 @@ import { BountyList } from "@/components/BountyList";
 import { useBountyDiscovery } from "@/hooks/useBountyDiscovery";
 
 export default function BountiesPage() {
-  const { tasks, pagination, isLoading, error, filters, setFilters, resetFilters, setPage } =
+  const { tasks, pagination, isLoading, error, filters, setFilters, resetFilters, setPage, retry } =
     useBountyDiscovery();
 
   return (
@@ -21,6 +21,7 @@ export default function BountiesPage() {
         isLoading={isLoading}
         error={error}
         onPageChange={setPage}
+        onRetry={retry}
       />
     </div>
   );

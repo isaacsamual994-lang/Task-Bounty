@@ -29,14 +29,26 @@ interface BountyListProps {
   isLoading: boolean;
   error: string | null;
   onPageChange: (page: number) => void;
+  onRetry: () => void;
 }
 
-export function BountyList({ tasks, pagination, isLoading, error, onPageChange }: BountyListProps) {
+export function BountyList({ tasks, pagination, isLoading, error, onPageChange, onRetry }: BountyListProps) {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <h3 className="text-xl font-semibold text-white mb-2">Couldn&apos;t load bounties</h3>
-        <p className="text-muted-foreground">{error}</p>
+        <p className="text-muted-foreground" role="alert">{error}</p>
+        <Button type="button" variant="outline" className="mt-4" onClick={onRetry}>
+          Retry loading bounties
+        </Button>
+      </div>
+    );
+  }
+
+  if (isLoading && tasks.length === 0) {
+    return (
+      <div role="status" aria-live="polite" className="py-20 text-center text-muted-foreground">
+        Loading bounties…
       </div>
     );
   }

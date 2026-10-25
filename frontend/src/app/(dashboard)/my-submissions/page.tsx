@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown, Clock, FileText, Inbox, Link2, MessageSquare } from "lucide-react";
 import { getPublicKey } from "@/hooks/stellar-wallets-kit";
+import { withRequestTimeout } from "@/lib/request-timeout";
 import type { SubmissionStatus, TaskStatus } from "@/types/task-workflow";
 
 interface SubmissionHistoryRow {
@@ -226,6 +227,7 @@ export default function MySubmissionsPage() {
   const [submissions, setSubmissions] = useState<SubmissionHistoryRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryToken, setRetryToken] = useState(0);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [statusTab, setStatusTab] = useState<StatusTab>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -265,15 +267,16 @@ export default function MySubmissionsPage() {
 
       try {
         const params = new URLSearchParams({ contributor: walletAddress! });
-        const response = await fetch(`/api/my-submissions?${params.toString()}`, {
-          signal: controller.signal,
-        });
-        const body = await response.json();
+        const body = await withRequestTimeout(async (signal) => {
+          const response = await fetch(`/api/my-submissions?${params.toString()}`, { signal });
+          const result = await response.json();
+          if (!response.ok || !result.ok) {
+            throw new Error(result.error ?? "Failed to load submission history.");
+          }
+          return result;
+        }, { signal: controller.signal });
 
-        if (!response.ok || !body.ok) {
-          throw new Error(body.error ?? "Failed to load submission history.");
-        }
-
+        if (controller.signal.aborted) return;
         setSubmissions(body.submissions);
       } catch (err) {
         if (controller.signal.aborted) return;
@@ -288,7 +291,7 @@ export default function MySubmissionsPage() {
     run();
 
     return () => controller.abort();
-  }, [walletAddress]);
+  }, [walletAddress, retryToken]);
 
   const counts = useMemo(() => {
     const byStatus: Record<StatusTab, number> = {
@@ -341,7 +344,16 @@ export default function MySubmissionsPage() {
 
       {walletAddress && !isLoading && error && (
         <Card className="bg-[#0A0B0F]/40 backdrop-blur-xl border border-white/10 shadow-2xl">
-          <CardContent className="py-10 text-center text-sm text-red-300">{error}</CardContent>
+          <CardContent className="flex flex-col items-center gap-3 py-10 text-center text-sm text-red-300">
+            <p role="alert">{error}</p>
+            <button
+              type="button"
+              onClick={() => setRetryToken((current) => current + 1)}
+              className="rounded-lg border border-white/20 px-4 py-2 text-white hover:bg-white/10"
+            >
+              Retry loading history
+            </button>
+          </CardContent>
         </Card>
       )}
 
